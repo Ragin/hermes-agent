@@ -54,7 +54,7 @@ EXTRA_PYTHONPATH=""
 EXTRA_PYTEST_PLUGINS=""
 if [ -f "$HOME/.hermes/pytest_live_guard.py" ]; then
   EXTRA_PYTHONPATH="$HOME/.hermes"
-  EXTRA_PYTEST_PLUGINS="pytest_live_guard"
+  EXTRA_PYTEST_PLUGINS=",pytest_live_guard"
 fi
 
 
@@ -65,6 +65,11 @@ echo "▶ running per-file parallel test suite via run_tests_parallel.py"
 echo "  (TZ=UTC LANG=C.UTF-8 PYTHONHASHSEED=0; clean env)"
 
 cd "$REPO_ROOT"
+# PYTEST_DISABLE_PLUGIN_AUTOLOADshuts off entry-point discovery, so
+# every pytest plugin the test suite relies on must be listed explicitly in
+# PYTEST_PLUGINS.  The names here are the pytest11 entry-point names, not the
+# pip package names: ``asyncio`` → pytest-asyncio, ``anyio`` → anyio's
+# pytest plugin.
 
 exec env -i \
   PATH="$PATH" \
@@ -75,6 +80,7 @@ exec env -i \
   PYTHONHASHSEED=0 \
   PYTHONDONTWRITEBYTECODE=1 \
   ${HERMES_RUN_SLOW_PET_TESTS:+HERMES_RUN_SLOW_PET_TESTS="$HERMES_RUN_SLOW_PET_TESTS"} \
+  PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 \
+  PYTEST_PLUGINS="asyncio,anyio$EXTRA_PYTEST_PLUGINS" \
   ${EXTRA_PYTHONPATH:+PYTHONPATH="$EXTRA_PYTHONPATH"} \
-  ${EXTRA_PYTEST_PLUGINS:+PYTEST_PLUGINS="$EXTRA_PYTEST_PLUGINS"} \
   "$PYTHON" "$SCRIPT_DIR/run_tests_parallel.py" "$@"
