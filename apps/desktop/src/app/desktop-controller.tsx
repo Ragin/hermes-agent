@@ -584,7 +584,7 @@ export function DesktopController() {
     [activeSessionIdRef, updateSessionState]
   )
 
-  const { changeSessionCwd, refreshProjectBranch } = useCwdActions({
+  const { refreshProjectBranch } = useCwdActions({
     activeSessionId,
     activeSessionIdRef,
     onSessionRuntimeInfo: updateActiveSessionRuntimeInfo,
@@ -1177,7 +1177,6 @@ export function DesktopController() {
         key={currentCwd || 'no-cwd'}
         onActivateFile={path => composer.insertContextPathInlineRef(path)}
         onActivateFolder={path => composer.insertContextPathInlineRef(path, true)}
-        onChangeCwd={changeSessionCwd}
       />
     </Pane>
   )
@@ -1185,7 +1184,10 @@ export function DesktopController() {
   const reviewPane = (
     <Pane
       defaultOpen
-      disabled={!chatOpen || !reviewOpen}
+      // The diff pane only makes sense in a workspace, so force it shut when the
+      // session is detached — "No diffs" then only ever shows inside a project,
+      // never as a second empty panel next to the file browser.
+      disabled={!chatOpen || !reviewOpen || !currentCwd.trim()}
       forceCollapsed={narrowViewport}
       id="review"
       key="review"

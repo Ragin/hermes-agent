@@ -40,7 +40,7 @@ import {
 } from '@/store/review'
 
 import { SidebarPanelLabel } from '../../shell/sidebar-label'
-import { RightSidebarSectionHeader } from '../index'
+import { PaneEmptyState, RightSidebarSectionHeader } from '../index'
 
 import { ReviewFileTree } from './file-tree'
 import { ReviewShipBar } from './ship-bar'
@@ -81,7 +81,8 @@ export function ReviewPane() {
           : 'border-l shadow-[inset_0.0625rem_0_0_color-mix(in_srgb,white_18%,transparent)]'
       )}
     >
-      <RightSidebarSectionHeader data-suppress-pane-reveal-side="">
+      {(loading || isRepo) && (
+        <RightSidebarSectionHeader data-suppress-pane-reveal-side="">
         <div className="flex min-w-0 flex-1">
           <SidebarPanelLabel>{c.review}</SidebarPanelLabel>
         </div>
@@ -137,18 +138,22 @@ export function ReviewPane() {
             <Codicon name="close" size="0.8125rem" />
           </Button>
         </Tip>
-      </RightSidebarSectionHeader>
+        </RightSidebarSectionHeader>
+      )}
 
-      {hasFiles ? (
-        <ReviewFileTree />
-      ) : showTreeSkeleton ? (
-        <TreeSkeleton />
+      {loading || isRepo ? (
+        hasFiles ? (
+          <ReviewFileTree />
+        ) : showTreeSkeleton ? (
+          <TreeSkeleton />
+        ) : loading ? (
+          <div className="min-h-0 flex-1" />
+        ) : (
+          <PaneEmptyState label={t.rightSidebar.noDiffs} />
+        )
       ) : (
-        <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-1 px-4 text-center">
-          {!loading && (
-            <div className="text-[0.7rem] text-muted-foreground/60">{isRepo ? c.noChanges : c.notRepo}</div>
-          )}
-        </div>
+        // No repo at all → same terse empty state, just without the chrome.
+        <PaneEmptyState label={t.rightSidebar.noDiffs} />
       )}
 
       {/* Selected file's diff — reuses the shiki-highlighted FileDiffPanel. */}

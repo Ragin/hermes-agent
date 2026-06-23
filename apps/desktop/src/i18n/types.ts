@@ -1399,6 +1399,8 @@ export interface Translations {
     couldNotPreview: (path: string) => string
     noProjectTitle: string
     noProjectBody: string
+    noProjectOpen: string
+    noDiffs: string
     unreadableTitle: string
     unreadableBody: (error: string) => string
     emptyTitle: string

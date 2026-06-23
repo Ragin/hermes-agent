@@ -133,12 +133,20 @@ const underPath = (parent: string, child: string): boolean =>
 // The project (explicit or auto) that owns `cwd`, by longest path match across
 // the live tree. Null when no project covers it (it'll surface as a fresh
 // auto-project on the next tree refresh).
-function projectIdForCwd(cwd: string): null | string {
+export function projectIdForCwd(cwd: string): null | string {
   let best: null | string = null
   let bestLen = -1
 
   for (const project of $projectTree.get()) {
-    for (const path of [project.path, ...project.repos.map(repo => repo.path)]) {
+    // Match project + repo roots AND each worktree-lane path: a linked worktree
+    // (e.g. a sibling `repo-retry`) lives OUTSIDE the repo root, so root-prefix
+    // matching alone would miss it — but it's still part of the project.
+    const paths = [
+      project.path,
+      ...project.repos.flatMap(repo => [repo.path, ...repo.groups.map(group => group.path)])
+    ]
+
+    for (const path of paths) {
       const p = (path || '').trim()
 
       if (p && underPath(p, cwd) && p.length > bestLen) {
