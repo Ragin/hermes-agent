@@ -645,6 +645,45 @@ export function ChatSidebar({
     }
   }, [worktreeGroupingActive, profileScope, gatewayReady])
 
+  // Out-of-band repo changes (a `git init` / `rm -rf` in another terminal) emit
+  // no git events, so — like every git GUI — re-pull on window focus / tab
+  // visibility instead of stranding the tree until a hard reload. The tree
+  // fetch is cheap and runs every focus (picks up explicit create/delete +
+  // session regrouping); the heavy disk crawl that surfaces brand-new repos is
+  // throttled. Agent-driven changes already refresh via $workspaceChangeTick.
+  useEffect(() => {
+    if (!worktreeGroupingActive || !gatewayReady) {
+      return
+    }
+
+    let lastScanAt = 0
+    const SCAN_THROTTLE_MS = 30_000
+
+    const onActive = () => {
+      if (document.visibilityState === 'hidden') {
+        return
+      }
+
+      void refreshProjects()
+      void refreshProjectTree()
+
+      const now = Date.now()
+
+      if (now - lastScanAt >= SCAN_THROTTLE_MS) {
+        lastScanAt = now
+        void scanAndRecordRepos(true)
+      }
+    }
+
+    window.addEventListener('focus', onActive)
+    document.addEventListener('visibilitychange', onActive)
+
+    return () => {
+      window.removeEventListener('focus', onActive)
+      document.removeEventListener('visibilitychange', onActive)
+    }
+  }, [worktreeGroupingActive, gatewayReady])
+
   // Apply the persisted repo + worktree orders to a project's repo subtrees.
   const orderRepos = useCallback(
     (repos: SidebarWorkspaceTree[]): SidebarWorkspaceTree[] =>
