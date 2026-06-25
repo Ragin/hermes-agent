@@ -20,7 +20,10 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from agent.conversation_loop import _restore_or_build_system_prompt
+from agent.conversation_loop import (
+    _restore_or_build_system_prompt,
+    _stored_prompt_matches_runtime,
+)
 
 
 def _make_agent(session_db=None, prebuilt_prompt: str = "BUILT_PROMPT"):
@@ -259,6 +262,50 @@ class TestPromptStabilityInvariant:
         assert agent._cached_system_prompt == stored
         # Byte-level check
         assert agent._cached_system_prompt.encode("utf-8") == stored.encode("utf-8")
+
+
+class TestStoredPromptMatchesRuntime:
+    """Direct tests for ``_stored_prompt_matches_runtime`` (issue #49462).
+
+    The matcher reads the FIRST ``Model:`` / ``Provider:`` line — the
+    canonical volatile identity line that ``build_system_prompt`` emits. A
+    later line that happens to start with the same prefix (plugin
+    static_context, a memory/USER.md entry) must NOT shadow it, otherwise the
+    comparison sees a false mismatch and forces a needless rebuild — a prefix
+    cache miss on every turn.
+    """
+
+    @staticmethod
+    def _agent(model: str, provider: str):
+        agent = MagicMock()
+        agent.model = model
+        agent.provider = provider
+        return agent
+
+    def test_first_line_matches_runtime_is_true(self):
+        prompt = "intro\nModel: test-model\nProvider: openrouter\n"
+        agent = self._agent("test-model", "openrouter")
+        assert _stored_prompt_matches_runtime(agent, prompt) is True
+
+    def test_stale_first_line_is_false(self):
+        prompt = "intro\nModel: old-model\nProvider: openrouter\n"
+        agent = self._agent("new-model", "openrouter")
+        assert _stored_prompt_matches_runtime(agent, prompt) is False
+
+    def test_later_model_line_does_not_shadow_canonical(self):
+        # Canonical identity line first; a trailing block (e.g. a plugin's
+        # injected text) also begins with "Model:" but with a different value.
+        # The matcher must compare against the FIRST line and still match.
+        prompt = (
+            "intro\n"
+            "Model: test-model\n"
+            "Provider: openrouter\n\n"
+            "Some plugin block:\n"
+            "Model: gpt-5.5  (an example referenced in docs)\n"
+            "Provider: openai-codex\n"
+        )
+        agent = self._agent("test-model", "openrouter")
+        assert _stored_prompt_matches_runtime(agent, prompt) is True
 
 
 if __name__ == "__main__":

@@ -380,12 +380,18 @@ def _stored_prompt_matches_runtime(agent, prompt: str) -> bool:
     """Return False when the persisted Model/Provider lines are stale."""
 
     def line_value(label: str) -> str:
+        # Return the FIRST matching line's value. The canonical volatile
+        # Model:/Provider: identity lines that build_system_prompt writes
+        # come first; later lines starting with the same prefix (e.g. a
+        # plugin static_context block or a memory/USER.md entry that happens
+        # to begin "Model:") must not shadow them. Reading the last match
+        # caused a false mismatch and a needless prompt rebuild — a prefix
+        # cache miss on every turn. (Issue #49462.)
         prefix = f"{label}:"
-        value = ""
         for line in prompt.splitlines():
             if line.startswith(prefix):
-                value = line[len(prefix):].strip()
-        return value
+                return line[len(prefix):].strip()
+        return ""
 
     stored_model = line_value("Model")
     current_model = str(getattr(agent, "model", "") or "").strip()
